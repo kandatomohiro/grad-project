@@ -210,20 +210,7 @@ int main( int argc, char **argv ){
     CvMemStorage *storage = cvCreateMemStorage (0);
     
     //ウィンドウを生成する
-    cvNamedWindow( windowNameSource, CV_WINDOW_AUTOSIZE );
-    cvNamedWindow( windowNameButtai, CV_WINDOW_AUTOSIZE );
-    cvNamedWindow( windowNameBinary1, CV_WINDOW_AUTOSIZE );
-    cvNamedWindow( windowNameBinary2, CV_WINDOW_AUTOSIZE );
-    cvNamedWindow( windowNameBinary3, CV_WINDOW_AUTOSIZE );
-    cvNamedWindow( windowNameHistogram1, CV_WINDOW_AUTOSIZE );
-    cvNamedWindow( windowNameHistogram2, CV_WINDOW_AUTOSIZE );
     cvNamedWindow( windowNameHistogram3, CV_WINDOW_AUTOSIZE );
-    cvNamedWindow( windowNameHistogram4, CV_WINDOW_AUTOSIZE );
-    cvNamedWindow( windowNameCont, CV_WINDOW_AUTOSIZE );
-    cvNamedWindow( windowNameKouho, CV_WINDOW_AUTOSIZE );
-    
-    //cvShowImage( windowNameButtai, frameImage );
-    //cvShowImage( windowNameSource, source2Image );
     
     //BGRからHSVに変換する
     cvCvtColor( source2Image, hsvImage1, CV_BGR2HSV );
@@ -244,7 +231,6 @@ int main( int argc, char **argv ){
             }
         }
     }
-    //cvShowImage( windowNameBinary1, binary1Image );
    
     
     for( int i = 0; i < 180; i++ ){
@@ -268,6 +254,7 @@ int main( int argc, char **argv ){
     //ヒストグラムの縦棒の横幅を計算する
     bin_w = cvRound( ( double )histogramImage->width / histogramSize );
     
+    /*
     //ヒストグラムの縦棒を描画する
     for ( int i = 0; i < histogramSize; i++ ){
         IplImage *henkanImage = cvCreateImage( cvSize(1, 1), IPL_DEPTH_8U, 3 );
@@ -285,27 +272,21 @@ int main( int argc, char **argv ){
                     );
         cvReleaseImage( &henkanImage );
     }
+    */
     
-    //画像を表示する
-    //cvShowImage( windowNameHistogram1, histogramImage );
-   
-
     
     //ガウシアンフィルタを計算する
     for ( int i = -2; i < 3; i++)
     {
         gausian[ i+2 ] = (1/(sqrt( 2 * M_PI)*gbunsan))*exp(-pow((i - gheikin),2.0)/2*pow(gbunsan,2.0));
-        //printf("%f\n",gausian[ i+2 ]);
         total += gausian[ i+2 ];
     }
-    //printf("%f\n",total);
     
     
     
     for( int i = 0; i < 5; i++)
     {
         filter[i] = gausian[ i ]/ total;
-        printf("%f\n",filter[ i ]);
     }
     
     for ( int i = 0; i < histogramSize; i++ )
@@ -375,10 +356,7 @@ int main( int argc, char **argv ){
             }
         }
     }
-    cvCvtColor( binary1Image, binary1, CV_GRAY2BGR );
-    //dhの表示？
-    cvLine( binary1, cvPoint( gX1, gY1), cvPoint( hx,hy), cvScalar( 0,0,255), 2, 8, 0);
-    //cvShowImage( windowNameBinary1, binary1 );
+    
     int hx1 = 0;
     int hy1 = 0;
     for( int x = 0; x < binary2Image->width; x++ ){
@@ -395,11 +373,7 @@ int main( int argc, char **argv ){
             }
         }
     }
-    //dmの表示？
-    cvLine( binary3Image, cvPoint( gX1, gY1), cvPoint( hx1,hy1), cvScalar( 255,0,0), 2, 8, 0);
-    //cvShowImage( windowNameBinary2, binary2Image );
-    cvCopy(source2Image,binary3Image,binary2Image);
-    //cvShowImage( windowNameBinary3, binary3Image );
+    
     xbectol = gX1 - hx1;
     ybectol = gY1 - hy1;
     double hankei = radius1 / radius2;
@@ -439,26 +413,7 @@ int main( int argc, char **argv ){
     
     for( int j = 0; j < histogramSize; j++ ){
         max_i_s[j] = ((double)max_i[j]/(double)max_i[max_hue2]) * histogramImage->height;
-        IplImage *henkan2Image = cvCreateImage( cvSize(1, 1), IPL_DEPTH_8U, 3 );
-        cvSet2D( henkan2Image,0, 0, cvScalar(j,255, 255,0) );
-        cvCvtColor( henkan2Image, henkan2Image ,CV_HSV2BGR );
-        CvScalar henkan2 = cvGet2D( henkan2Image, 0, 0);
-        //矩形、あるいは塗りつぶされた矩形を描写
-        cvRectangle(
-                    heikatuImage,
-                    cvPoint( j * bin_w, histogramImage->height ),
-                    cvPoint( ( j+1 ) * bin_w, histogramImage->height - max_i[j] ),
-                    henkan2,
-                    LINE_THICKNESS,
-                    LINE_TYPE,
-                    SHIFT
-                    );
-        cvReleaseImage( &henkan2Image );
     }
-    
-    //cvShowImage( windowNameHistogram2, heikatuImage );
-    
-    //printf("%d\n" , max_hue2 );
     
     for( int k = 0; k < histogramSize; k++ )
     {
@@ -478,10 +433,12 @@ int main( int argc, char **argv ){
         }
     }
     
+    /*
     for( int l = 0; l < mount.size(); l++ )
     {
         printf("山の位置は%d,%d\n"    ,mount[ l ],max_i_s[mount[ l ]]);
     }
+    */
     
     for( int k = 0; k < histogramSize; k++ )
     {
@@ -501,15 +458,14 @@ int main( int argc, char **argv ){
         }
     }
     
+    /*
     for( int l = 0; l < valley.size(); l++ )
     {
         printf("谷の位置は%d,%d\n"    ,valley[ l ],max_i_s[valley[ l ]]);
     }
+    */
     
     gosa = ((mount.size() + valley.size())*2)+2;
-    
-    //printf("kokomadekita");
-    //    cvWaitKey( 0 );
     
     //BGRからHSVに変換する
     cvCvtColor( frameImage, hsvImage2, CV_BGR2HSV );
@@ -538,14 +494,8 @@ int main( int argc, char **argv ){
     //縮小をITERATIONS回繰り返す
     cvErode( temp, objectImage, NULL, ITERATIONS );
     
-    //cvShowImage( windowNameObject, objectImage );
-
-    
     //輪郭抽出する
     cvFindContours( objectImage, storage, &contours, sizeof(CvContour), CV_RETR_LIST, 2, cvPoint(0, 0));
-    
-    cvZero(kouhoImage);
-    cvZero( cont2Image );
     
     for ( CvSeq *seq = contours; seq; seq=seq->h_next )
     {
@@ -561,8 +511,6 @@ int main( int argc, char **argv ){
             {
                 hist2[i] = 0;
             }
-            CvHistogram *h_histogram;
-            cvDrawContours( kouhoImage, seq, cvScalar(255),cvScalar(255), 0, -1,8,cvPoint(0,0));
             cvZero( contImage );
             cvDrawContours( contImage, seq, cvScalar(255), cvScalar(255), -1, CV_FILLED, 8);
             cvMoments( contImage, &moments2, 0 );
@@ -606,19 +554,10 @@ int main( int argc, char **argv ){
                 }
             }
             
-            rect = cvBoundingRect( seq, 0 );
-            cvCircle( contImage, cvPoint( gX2, gY2 ), radius3*hankei, cvScalar( 255 ), -1, 8 );
-            cvCircle( cont2Image, cvPoint( gX2, gY2 ), radius3*hankei, cvScalar( 255 ), -1, 8 );
-            cvLine( cont3Image, cvPoint( gX2, gY2), cvPoint( xh,yh), cvScalar( 255,0,0), 2, 8, 0);
-            //cvShowImage( windowNameCont, cont3Image );
             txbectol = gX2 - xh;
             tybectol = gY2 - yh;
-            h_hsvImage = cvCreateImage( cvSize(rect.width,rect.height), 8, 3 );
-            h_hueImage = cvCreateImage( cvSize(rect.width,rect.height), 8, 1 );
-            h_saturationImage = cvCreateImage( cvSize(rect.width,rect.height), 8, 1 );
-            h_valueImage = cvCreateImage( cvSize(rect.width,rect.height), 8, 1 );
-            h_histogramImage = cvCreateImage( cvSize( HISTOGRAM_WIDTH, HISTOGRAM_HEIGHT ), IPL_DEPTH_8U, 3 );
-            h_heikatuImage = cvCreateImage( cvSize( HISTOGRAM_WIDTH, HISTOGRAM_HEIGHT ), IPL_DEPTH_8U, 3 );
+            
+            cvCircle( contImage, cvPoint( gX2, gY2 ), radius3*hankei, cvScalar( 255 ), -1, 8 );
             for( int x = 0; x < contImage->width; x++ ){
                 for( int y = 0; y < contImage->height; y++ ){
                     if( cvGetReal2D( contImage, y, x ) == 255 )
@@ -642,29 +581,7 @@ int main( int argc, char **argv ){
             for( int j = 0; j < 180; j++ ){
                 hist_seiki2[j] = hist2[j]/h_max_value * histogramImage->height;
             }
-            //ヒストグラム画像を白で初期化する
-            cvSet( h_histogramImage, cvScalarAll( 360 ), NULL );
-            cvSet( h_heikatuImage, cvScalarAll( 360 ), NULL );
-            //ヒストグラムの縦棒を描画する
-            for ( int i = 0; i < histogramSize; i++ ){
-                IplImage *h_henkanImage = cvCreateImage( cvSize(1, 1), IPL_DEPTH_8U, 3 );
-                cvSet2D( h_henkanImage,0, 0, cvScalar(i,255, 255,0) );
-                cvCvtColor( h_henkanImage, h_henkanImage ,CV_HSV2BGR );
-                CvScalar h_henkan = cvGet2D( h_henkanImage, 0, 0);
-                cvRectangle(
-                            h_histogramImage,
-                            cvPoint( i * bin_w, h_histogramImage->height ),
-                            cvPoint( ( i+1 ) * bin_w, h_histogramImage->height - hist_seiki2[i] ),
-                            h_henkan,
-                            LINE_THICKNESS,
-                            LINE_TYPE,
-                            SHIFT
-                            );
-                cvReleaseImage( &h_henkanImage );
-            }
-            //画像を表示する
-            //cvShowImage( windowNameHistogram4, h_histogramImage );
-     
+            
             for( int j = 0; j < histogramSize; j++ ){
                 if( j == 0 )
                 {
@@ -697,28 +614,10 @@ int main( int argc, char **argv ){
             
             for( int j = 0; j < histogramSize; j++ )
             {
-                h_max_i_s[j] = ((double)h_max_i[j]/(double)h_max_i[max_hue3]) *histogramImage->height;
-                IplImage *henkan2Image = cvCreateImage( cvSize(1, 1), IPL_DEPTH_8U, 3 );
-                cvSet2D( henkan2Image,0, 0, cvScalar(j,255, 255,0) );
-                cvCvtColor( henkan2Image, henkan2Image ,CV_HSV2BGR );
-                CvScalar henkan2 = cvGet2D( henkan2Image, 0, 0);
-                cvRectangle(
-                            h_heikatuImage,
-                            cvPoint( j * bin_w, h_histogramImage->height ),
-                            cvPoint( ( j+1 ) * bin_w, h_histogramImage->height - h_max_i_s[j]),
-                            henkan2,
-                            LINE_THICKNESS,
-                            LINE_TYPE,
-                            SHIFT
-                            );
-                cvReleaseImage( &henkan2Image );
+                h_max_i_s[j] = ((double)h_max_i[j]/(double)h_max_i[max_hue3]) * histogramImage->height;
             }
-            //画像を表示する
-            cvShowImage( windowNameHistogram4, h_heikatuImage );
-            cvCopy( frameImage, miruImage, 0 );
-            cvCircle( miruImage, cvPoint( gX2, gY2 ), radius3*hankei, cvScalar( 255 ), 1, 8 );
-            cvShowImage( windowNameMiru, miruImage );
             
+                    
             for( int k = 0; k < histogramSize; k++ )
             {
                 if( k == 0)
@@ -737,10 +636,6 @@ int main( int argc, char **argv ){
                 }
             }
             
-            for( int l = 0; l < h_mount.size(); l++ )
-            {
-                //printf("山の位置は%d,%d\n"    ,h_mount[ l ],h_max_i[h_mount[ l ]]);
-            }
             
             for( int k = 0; k < histogramSize; k++ )
             {
@@ -759,12 +654,6 @@ int main( int argc, char **argv ){
                     }
                 }
             }
-            
-            for( int l = 0; l < h_valley.size(); l++ )
-            {
-                //printf("谷の位置は%d,%d\n"    ,h_valley[ l ],h_max_i[h_valley[ l ]]);
-            }
-            //printf("終わりました\n");
             
             for(int j = 0; j < mount.size(); j++)
             {
@@ -838,8 +727,6 @@ int main( int argc, char **argv ){
         }
     }
     
-    cvCopy( frameImage, kouho2Image,kouhoImage);
-    cvShowImage( windowNameKouho, kouho2Image );
     cvCopy( frameImage, kekkaImage );
     int bt =120;
     for( int j = 0; j < ht.size(); j++ )
@@ -898,111 +785,7 @@ int main( int argc, char **argv ){
     cvReleaseImage( &heikatuImage );
     cvReleaseImage( &h_heikatuImage );
     cvReleaseImage( &h_histogramImage );
-    cvDestroyWindow( windowNameSource );
-    cvDestroyWindow( windowNameBinary1 );
-    cvDestroyWindow( windowNameBinary2 );
-    cvDestroyWindow( windowNameBinary3 );
-    cvDestroyWindow( windowNameHistogram1 );
-    cvDestroyWindow( windowNameHistogram2 );
-    cvDestroyWindow( windowNameHistogram3 );
-    cvDestroyWindow( windowNameHistogram4 );
-    cvDestroyWindow( windowNameCont );
-    cvDestroyWindow( windowNameObject );
-    cvDestroyWindow( windowNameKouho );
     
+    cvDestroyWindow( windowNameHistogram3 );
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* main
- int main(void)
- {
- IplImage *img;
- IplImage *gray;
- IplImage *color;
- int i,x,y;
- 
- // 画像読み込み
- img = cvLoadImage("images/lena.jpg",CV_LOAD_IMAGE_UNCHANGED);
- if (img == NULL)
- {
- printf("Error loading file");
- return 0;
- }
- 
- 
- gray = cvCreateImage(cvGetSize(img),IPL_DEPTH_8U,1); // grayをimgの大きさに合わせ、グレー用として使用
- cvCvtColor(img,gray,CV_BGR2GRAY);// imgをgrayへ変換する
- cvThreshold(gray,gray,50,255,CV_THRESH_BINARY); // ２値化処理をする
- cvNot(gray, gray);
- 
- color = cvCreateImage(cvGetSize(img), img->depth, img->nChannels);
- cvCopy(img, color, gray);
- //cvCvtColor(color, color, CV_BGR2HSV);// 表色系をBGRからHSVに変換する
- 
- //ヒストグラムの抽出
- IplImage *src = color;
- IplImage* h_plane = cvCreateImage( cvGetSize(src), 8, 1 );
- IplImage* planes[] = { h_plane };
- IplImage* hsv = cvCreateImage( cvGetSize(src), 8, 3 );
- int h_bins = 180;
- int hist_size[] = {h_bins};
- float h_ranges[] = { 0, 180 };
- float* ranges[] = { h_ranges };
- CvHistogram* hist;
- float max_value = 0;
- int h;
- 
- cvCvtColor(src, hsv, CV_BGR2HSV);
- cvCvtPixToPlane(hsv, h_plane, 0, 0, 0);
- hist = cvCreateHist(1, hist_size, CV_HIST_ARRAY, ranges, 1);
- cvCalcHist(planes, hist, 0, 0);
- cvGetMinMaxHistValue(hist, 0, &max_value, 0, 0);
- 
- for( h = 0; h < h_bins; h++ )
- {
- float bin_val = cvQueryHistValue_1D(hist, h);
- //int intensity = cvRound(bin_val*255/max_value);
- printf("%f\n", bin_val);
- }
- 
- 
- cvNamedWindow("Window", 1); // ウィンドウの作成
- cvShowImage("Window",hsv);// 画像の表示
- cvWaitKey(0); // キー入力待機
- cvReleaseImage(&img);// メモリ解放
- cvReleaseImage(&gray);
- cvReleaseImage(&color);
- 
- cvDestroyWindow("Window"); // ウィンドウを消す
- 
- 
- return 0;
- } */
