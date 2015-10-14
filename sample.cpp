@@ -49,9 +49,6 @@ int hist2[180];          // ヒストグラムの値を入れる
 float hist_seiki1[180];  // 正規化したヒストグラムを入れる
 float hist_seiki2[180];  // 正規化したヒストグラムを入れる
 
-IplImage *histogramImage = NULL;  // ヒストグラム画像用IplImage
-IplImage *heikatuImage   = NULL;
-
 CvMoments moments1;  // 重心を求める時のもの
 CvMoments moments2;  // 重心を求める時のもの
 
@@ -68,190 +65,95 @@ struct HANTEI {
 int main( int argc, char **argv ){
     vector<HANTEI> ht;
 
-    CvScalar color1;  // HSV表色系で表した色
-    CvScalar color2;  // HSV表色系で表した色
-    CvScalar color3;  // HSV表色系で表した色
-    CvScalar color4;  // HSV表色系で表した色
-
     CvSeq *contours = NULL;
-    unsigned char h1;  // H成分
-    unsigned char s1;  // S成分
-    unsigned char v1;  // V成分
 
-    unsigned char h2;  // H成分
-    unsigned char s2;  // S成分
-    unsigned char v2;  // V成分
+    int max_hue  = 0;  // ヒストグラムが最大の時のHUEの値
+    int max_hue2 = 0;  // 平滑後のヒストグラムが最大の時のHUEの値
 
-    unsigned char h3;  // H成分
-    unsigned char s3;  // S成分
-    unsigned char v3;  // V成分
+    int max_i[180];      // ヒストグラムを正規分布で表した時のHUEの値
+    int h_max_i[180];    // 比較するヒストグラムを正規分布で表した時のHUEの値
+    int max_i_s[180];    // ヒストグラムを正規分布で表した時のHUEの値
+    int h_max_i_s[180];  // 比較するヒストグラムを正規分布で表した時のHUEの値
+    int max;             // 物体の高さを求めるための物体の候補の最大値
+    int min;             // 物体の高さを求めるための物体の候補の最小値
+    double xbectol;      // 角度を求める時に用いるxベクトル
+    double ybectol;      // 角度を求める時に用いるyベクトル
 
-    unsigned char h4;  // H成分
-    unsigned char s4;  // S成分
-    unsigned char v4;  // V成分
+    double filter[5];  // ガウシアンフィルタ
 
-    char *windowNameHistogram3 = "kekka";  // 比較するヒストグラムを表示するウィンドウの名前
+    vector<int> mount;     // ヒストグラムの山の位置
+    vector<int> valley;    // ヒストグラムの谷の位置
+    vector<int> h_mount;   // 比較するヒストグラムの山の位置
+    vector<int> h_valley;  // 比較するヒストグラムの谷の位置
+    vector<int> hanteip;   // 判定(山)
+    vector<int> hanteim;   // 判定(谷)
 
-    int max_hue    = 0;                    //ヒストグラムが最大の時のHUEの値
-    int max_hue2    = 0;                    //平滑後のヒストグラムが最大の時のHUEの値
-    int max_i[180];                            //ヒストグラムを正規分布で表した時のHUEの値
-    int h_max_i[180];                            //比較するヒストグラムを正規分布で表した時のHUEの値
-    int max_i_s[180];                            //ヒストグラムを正規分布で表した時のHUEの値
-    int h_max_i_s[180];                            //比較するヒストグラムを正規分布で表した時のHUEの値
-    int max;                                    //物体の高さを求めるための物体の候補の最大値
-    int min;                                //物体の高さを求めるための物体の候補の最小値
-    double xbectol;                                    //角度を求める時に用いるxベクトル
-    double ybectol;                                //角度を求める時に用いるyベクトル
+    // cvLoadImage ファイルから画像を読み込む
+    IplImage *sourceImage = cvLoadImage("image/object24.bmp", CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR);
+    IplImage *frameImage   = cvLoadImage("image/buttai(0.4bai).bmp", CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR);
 
-    double filter[5];                    //ガウシアンフィルタ
-
-    vector<int>    mount;                //ヒストグラムの山の位置
-    vector<int>    valley;                //ヒストグラムの谷の位置
-    vector<int>    h_mount;                //比較するヒストグラムの山の位置
-    vector<int>    h_valley;                //比較するヒストグラムの谷の位置
-    vector<int> hanteip;                //判定(山)
-    vector<int> hanteim;                //判定(谷)
-
-    //cvLoadImage ファイルから画像を読み込む
-    IplImage *source1Image = cvLoadImage( "image/object24.bmp", CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR );
-    IplImage *frameImage = cvLoadImage( "image/buttai(0.4bai).bmp", CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR );
-
-    //cvCreateImage ヘッダの作成とデータ領域の確保
-    IplImage *source2Image = cvCreateImage( cvSize( (int)(source1Image->width), (int)(source1Image->height)), IPL_DEPTH_8U, 3 );
-
-
-    if ( source1Image == NULL ) {
-        //画像が見つからなかった場合
-        printf( "画像が見つかりません\n" );
-        return -1;
-    }
-    if ( frameImage == NULL ) {
-        //画像が見つからなかった場合
+    if (!sourceImage || !frameImage) {
         printf( "画像が見つかりません\n" );
         return -1;
     }
 
-    //cvResize source2Imageに合わせsource1Imageを拡張・縮小
-    cvResize( source1Image, source2Image, 1 );
+    CvSize sizeOfSourceImage = cvGetSize(sourceImage);
+    CvSize sizeOfFrameImage  = cvGetSize(frameImage);
 
-    CvSize sizeOfImage1 = cvGetSize( source2Image );
-    CvSize sizeOfImage2 = cvGetSize( frameImage );
-    histogramImage = cvCreateImage( cvSize( HISTOGRAM_WIDTH, HISTOGRAM_HEIGHT ), IPL_DEPTH_8U, 3 );
-    heikatuImage = cvCreateImage( cvSize( HISTOGRAM_WIDTH, HISTOGRAM_HEIGHT ), IPL_DEPTH_8U, 3 );
+    // 画像を生成する
+    IplImage *hsvImage1    = cvCreateImage(sizeOfSourceImage, IPL_DEPTH_8U, 3);  // HSV画像用IplImage
+    IplImage *binary1Image = cvCreateImage(sizeOfSourceImage, IPL_DEPTH_8U, 1);  // 二値化情報用IplImage
+    IplImage *binary2Image = cvCreateImage(sizeOfSourceImage, IPL_DEPTH_8U, 1);  // 二値化情報用IplImage
 
-    //画像を生成する
-    IplImage *hsvImage1 = cvCreateImage( sizeOfImage1, IPL_DEPTH_8U, 3 );            //HSV画像用IplImage
-    IplImage *hsvImage3 = cvCreateImage( sizeOfImage1, IPL_DEPTH_8U, 3 );            //HSV画像用IplImage
-    IplImage *hsvImage2 = cvCreateImage( sizeOfImage2, 8, 3 );            //HSV画像用IplImage
-    IplImage *objectImage = cvCreateImage( sizeOfImage2, 8, 1 );            //オブジェクトの候補位置1IplImage
-    IplImage *kouhoImage = cvCreateImage( sizeOfImage2, 8, 1 );            //オブジェクトの候補位置2IplImage
-    IplImage *kouho2Image = cvCreateImage( sizeOfImage2, 8, 3 );            //オブジェクトの候補位置2IplImage
-    IplImage *h_hsvImage = NULL;
-    IplImage *h_hueImage = NULL;
-    IplImage *h_saturationImage = NULL;
-    IplImage *h_valueImage = NULL;
-    IplImage *miruImage = cvCreateImage( sizeOfImage2, 8, 3 );
-    IplImage *temp = cvCreateImage( sizeOfImage2, 8, 1 );            //一時保存用IplImage
-    IplImage *label = cvCreateImage( sizeOfImage2,IPL_DEPTH_16S,1);            //ラベル結果保存用IplImage
+    IplImage *hsvImage2    = cvCreateImage(sizeOfFrameImage, IPL_DEPTH_8U, 3);   // HSV画像用IplImage
+    IplImage *objectImage  = cvCreateImage(sizeOfFrameImage, IPL_DEPTH_8U, 1);   // オブジェクトの候補位置1IplImage
+    IplImage *temp         = cvCreateImage(sizeOfFrameImage, IPL_DEPTH_8U, 1);   // 一時保存用IplImage
+    IplImage *contImage    = cvCreateImage(sizeOfFrameImage, IPL_DEPTH_8U, 1);
 
+    // BGRからHSVに変換する
+    cvCvtColor(sourceImage, hsvImage1, CV_BGR2HSV);
 
-    IplImage *hueImage = cvCreateImage( sizeOfImage1, IPL_DEPTH_8U, 1);            //色相(H)情報用IplImage
-    IplImage *saturationImage = cvCreateImage( sizeOfImage1, IPL_DEPTH_8U, 1);    //彩度(S)情報用IplImage
-    IplImage *valueImage = cvCreateImage( sizeOfImage1, IPL_DEPTH_8U, 1);        //明度(V)情報用IplImage
-    IplImage *binary1Image = cvCreateImage( sizeOfImage1, IPL_DEPTH_8U, 1 );        //二値化情報用IplImage
-    IplImage *binary2Image = cvCreateImage( sizeOfImage1, IPL_DEPTH_8U, 1 );        //二値化情報用IplImage
-    IplImage *binary1 = cvCreateImage( sizeOfImage1, IPL_DEPTH_8U, 3 );        //二値化情報用IplImage
-    IplImage *binary3Image = cvCreateImage( sizeOfImage1, IPL_DEPTH_8U, 3 );        //二値化情報用IplImage
-    IplImage *contImage = cvCreateImage( sizeOfImage2, IPL_DEPTH_8U, 1);
-    IplImage *cont2Image = cvCreateImage( sizeOfImage2, IPL_DEPTH_8U, 1);
-    IplImage *cont3Image = cvCreateImage( sizeOfImage2, IPL_DEPTH_8U, 3);
-    IplImage *kekkaImage = cvCreateImage( sizeOfImage2, IPL_DEPTH_8U, 3);
+    for (int x = 0; x < binary1Image->width; x++) {
+        for (int y = 0; y < binary1Image->height; y++) {
+            CvScalar color = cvGet2D(hsvImage1, y, x);
+            unsigned char h = color.val[0];
+            unsigned char v = color.val[2];
 
-    CvMemStorage *storage = cvCreateMemStorage (0);
-
-    //ウィンドウを生成する
-    cvNamedWindow( windowNameHistogram3, CV_WINDOW_AUTOSIZE );
-
-    //BGRからHSVに変換する
-    cvCvtColor( source2Image, hsvImage1, CV_BGR2HSV );
-    cvCvtColor( source2Image, hsvImage3, CV_BGR2HSV );
-
-    for( int x = 0; x < binary1Image->width; x++ ){
-        for( int y = 0; y < binary1Image->height; y++ ){
-            color1 = cvGet2D( hsvImage1, y, x );
-            h1 = color1.val[0];
-            s1 = color1.val[1];
-            v1 = color1.val[2];
-
-            if(v1 >= 30){
-                cvSetReal2D( binary1Image, y, x, 0 );
-                hist1[ h1 ]++;
-            }else{
-                cvSetReal2D( binary1Image, y, x, 255 );
+            if (v >= 30) {
+                cvSetReal2D(binary1Image, y, x, 0);
+                hist1[h]++;
+            } else {
+                cvSetReal2D(binary1Image, y, x, 255);
             }
         }
     }
 
-    //ヒストグラムの最大値
+    // ヒストグラムの最大値
     float max_value = 0;
-    for( int i = 0; i < 180; i++ ){
-        if ( max_value < hist1[ i ]){
-            max_value = hist1[ i ];
+    for (int i = 0; i < 180; i++) {
+        if (max_value < hist1[i]) {
+            max_value = hist1[i];
         }
     }
-    for( int j = 0; j < 180; j++ ){
-        hist_seiki1[j] = hist1[j]/max_value * histogramImage->height;
+    for (int j = 0; j < 180; j++) {
+        hist_seiki1[j] = hist1[j] / max_value * HISTOGRAM_HEIGHT;
     }
 
-    printf( "値の最大値は%f\n", max_value );
-
-    //HSV画像をH,S,V画像に分ける
-    cvSplit( hsvImage1, hueImage, saturationImage, valueImage, NULL );
-
-    //ヒストグラム画像を白で初期化する
-    cvSet( histogramImage, cvScalarAll( 360 ), NULL );
-    cvSet( heikatuImage, cvScalarAll( 360 ), NULL );
-
-    //ヒストグラムの縦棒の横幅を計算する
-    int bin_w;                            //ヒストグラムの縦棒の横幅
-    bin_w = cvRound( ( double )histogramImage->width / histogramSize );
-
-    /*
-    //ヒストグラムの縦棒を描画する
-    for ( int i = 0; i < histogramSize; i++ ){
-    IplImage *henkanImage = cvCreateImage( cvSize(1, 1), IPL_DEPTH_8U, 3 );
-    cvSet2D( henkanImage,0, 0, cvScalar(i,255, 255,0) );
-    cvCvtColor( henkanImage, henkanImage ,CV_HSV2BGR );
-    CvScalar henkan = cvGet2D( henkanImage, 0, 0);
-    cvRectangle(
-    histogramImage,
-    cvPoint( i * bin_w, histogramImage->height ),
-    cvPoint( ( i+1 ) * bin_w, histogramImage->height -  hist_seiki1[i] ),
-    henkan,
-    -1,
-    8,
-    0
-    );
-    cvReleaseImage( &henkanImage );
-    }
-    */
-
+    printf("値の最大値は%f\n", max_value);
 
     //ガウシアンフィルタを計算する
-    double gheikin    = 0;            //ガウシアンフィルタをつくる時のμの値
-    double gbunsan = 1.0;        //ガウシアンフィルタをつくる時のσの値
-    double total = 0;                        //ガウシアン作成の時の正規化するための値
-    double gausian[5];                        //ガウシアンの割合
-    for ( int i = -2; i < 3; i++)
-    {
-        gausian[ i+2 ] = (1/(sqrt( 2 * M_PI)*gbunsan))*exp(-pow((i - gheikin),2.0)/2*pow(gbunsan,2.0));
-        total += gausian[ i+2 ];
-    }
-    for( int i = 0; i < 5; i++)
-    {
-        filter[i] = gausian[ i ]/ total;
-    }
+    double gheikin = 0;    // ガウシアンフィルタをつくる時のμの値
+    double gbunsan = 1.0;  // ガウシアンフィルタをつくる時のσの値
+    double total   = 0;    // ガウシアン作成の時の正規化するための値
+    double gausian[5];     // ガウシアンの割合
 
+    for (int i = -2; i < 3; i++) {
+        gausian[i + 2] = (1.0 / (sqrt(2.0 * M_PI) * gbunsan)) * exp(-pow((i - gheikin), 2.0) / 2.0 * pow(gbunsan, 2.0));
+        total += gausian[i + 2];
+    }
+    for (int i = 0; i < 5; i++) {
+        filter[i] = gausian[ i ] / total;
+    }
 
     for ( int i = 0; i < histogramSize; i++ )
     {
@@ -262,29 +164,17 @@ int main( int argc, char **argv ){
     }
     printf("最大値の頻度を示す色相は%d\n" , max_hue );
 
-    for( int x = 0; x < binary2Image->width; x++ ){
-        for( int y = 0; y < binary2Image->height; y++ ){
+    for (int x = 0; x < binary2Image->width; x++) {
+        for (int y = 0; y < binary2Image->height; y++) {
+            CvScalar color = cvGet2D(hsvImage1, y, x);
+            unsigned char h = color.val[0];
+            unsigned char v = color.val[2];
 
-            color3 = cvGet2D( hsvImage3, y, x );
-
-            h3 = color3.val[0];
-            s3 = color3.val[1];
-            v3 = color3.val[2];
-
-            if(max_hue- 5 <= h3 && h3 <= max_hue + 5
-                    && v3 > 50)
-            {
-                cvSetReal2D( binary2Image, y, x, 255 );
-            }else{
-                cvSetReal2D( binary2Image, y, x, 0 );
+            if (max_hue - 5 <= h && h <= max_hue + 5 && v > 50) {
+                cvSetReal2D(binary2Image, y, x, 255);
+            } else {
+                cvSetReal2D(binary2Image, y, x, 0);
             }
-        }
-    }
-    for( int y = 0; y < binary3Image->height; y++ ){
-        for( int x = 0; x < binary3Image->width; x++ ){
-            binary3Image->imageData[binary3Image->widthStep * y + x * 3 ] = cvRound( 255 );
-            binary3Image->imageData[binary3Image->widthStep * y + x * 3 + 1 ] = cvRound( 255 );
-            binary3Image->imageData[binary3Image->widthStep * y + x * 3 + 2 ] = cvRound( 255 );
         }
     }
 
@@ -370,7 +260,7 @@ int main( int argc, char **argv ){
     }
 
     for( int j = 0; j < histogramSize; j++ ){
-        max_i_s[j] = ((double)max_i[j]/(double)max_i[max_hue2]) * histogramImage->height;
+        max_i_s[j] = ((double)max_i[j]/(double)max_i[max_hue2]) * HISTOGRAM_HEIGHT;
     }
 
     for( int k = 0; k < histogramSize; k++ )
@@ -427,20 +317,17 @@ int main( int argc, char **argv ){
     cvCvtColor( frameImage, hsvImage2, CV_BGR2HSV );
     //cvZero(objectImage);
 
-    for( int x = 0; x < objectImage->width; x++ ){
-        for( int y = 0; y < objectImage->height; y++ ){
+    for (int x = 0; x < objectImage->width; x++) {
+        for (int y = 0; y < objectImage->height; y++) {
+            CvScalar color = cvGet2D(hsvImage2, y, x);
+            unsigned char h = color.val[0];
+            unsigned char s = color.val[1];
+            unsigned char v = color.val[2];
 
-            color2 = cvGet2D( hsvImage2, y, x );
-            h2 = color2.val[0];
-            s2 = color2.val[1];
-            v2 = color2.val[2];
-
-            if( max_hue - 5 <= h2 && h2 <= max_hue + 5  && s2 > v2 * 0.5 && v2 > 50)
-            {
-                cvSetReal2D(objectImage, y, x, 255 );
-            }
-            else{
-                cvSetReal2D(objectImage, y, x, 0 );
+            if (max_hue - 5 <= h && h <= max_hue + 5 && s > v * 0.5 && v > 50) {
+                cvSetReal2D(objectImage, y, x, 255);
+            } else {
+                cvSetReal2D(objectImage, y, x, 0);
             }
         }
     }
@@ -451,6 +338,7 @@ int main( int argc, char **argv ){
     cvErode( temp, objectImage, NULL, ITERATIONS );
 
     //輪郭抽出する
+    CvMemStorage *storage = cvCreateMemStorage (0);
     cvFindContours( objectImage, storage, &contours, sizeof(CvContour), CV_RETR_LIST, 2, cvPoint(0, 0));
 
     for ( CvSeq *seq = contours; seq; seq=seq->h_next )
@@ -514,17 +402,16 @@ int main( int argc, char **argv ){
             tybectol = gY2 - yh;
 
             cvCircle( contImage, cvPoint( gX2, gY2 ), radius3*hankei, cvScalar( 255 ), -1, 8 );
-            for( int x = 0; x < contImage->width; x++ ){
-                for( int y = 0; y < contImage->height; y++ ){
-                    if( cvGetReal2D( contImage, y, x ) == 255 )
-                    {
-                        color4 = cvGet2D( hsvImage2, y, x );
-                        h4 = color4.val[0];
-                        s4 = color4.val[1];
-                        v4 = color4.val[2];
-                        if( s4 > v4 * 0.5)
-                        {
-                            hist2[ h4 ]++;
+            for (int x = 0; x < contImage->width; x++) {
+                for (int y = 0; y < contImage->height; y++) {
+                    if (cvGetReal2D( contImage, y, x ) == 255) {
+                        CvScalar color = cvGet2D(hsvImage2, y, x);
+                        unsigned char h = color.val[0];
+                        unsigned char s = color.val[1];
+                        unsigned char v = color.val[2];
+
+                        if (s > v * 0.5) {
+                            hist2[h]++;
                         }
                     }
                 }
@@ -535,7 +422,7 @@ int main( int argc, char **argv ){
                 }
             }
             for( int j = 0; j < 180; j++ ){
-                hist_seiki2[j] = hist2[j]/h_max_value * histogramImage->height;
+                hist_seiki2[j] = hist2[j]/h_max_value * HISTOGRAM_HEIGHT;
             }
 
             for( int j = 0; j < histogramSize; j++ ){
@@ -570,7 +457,7 @@ int main( int argc, char **argv ){
 
             for( int j = 0; j < histogramSize; j++ )
             {
-                h_max_i_s[j] = ((double)h_max_i[j]/(double)h_max_i[max_hue3]) * histogramImage->height;
+                h_max_i_s[j] = ((double)h_max_i[j]/(double)h_max_i[max_hue3]) * HISTOGRAM_HEIGHT;
             }
 
 
@@ -684,7 +571,6 @@ int main( int argc, char **argv ){
         }
     }
 
-    cvCopy( frameImage, kekkaImage );
     int bt =120;
     for( int j = 0; j < ht.size(); j++ )
     {
@@ -692,6 +578,10 @@ int main( int argc, char **argv ){
             bt = ht[j].kekka;
         }
     }
+
+    //ウィンドウを生成する
+    char windowNameHistogram3[] = "kekka";  // 比較するヒストグラムを表示するウィンドウの名前
+    cvNamedWindow( windowNameHistogram3, CV_WINDOW_AUTOSIZE );
 
     for( int i = 0; i < ht.size(); i++ )
     {
@@ -703,17 +593,17 @@ int main( int argc, char **argv ){
             double c;
             double sign;
             printf("描画します\n");
-            cvCircle( kekkaImage, ht[i].point, ht[i].radius, cvScalar( 255,255,255 ), 2, 8 );
+            cvCircle( frameImage, ht[i].point, ht[i].radius, cvScalar( 255,255,255 ), 2, 8 );
             height = ht[i].max - ht[i].min;
             printf("画像中の高さは%d\n", height );
-            a = (double)source1Image->height * TRADIUS;
+            a = (double)sourceImage->height * TRADIUS;
             radius = a / (double)height;
             printf("物体までの距離は%f\n", radius );
             b =atan( ybectol / xbectol );
             c =atan( ht[i].tybectol / ht[i].txbectol);
             sign = (180/CV_PI)*(c - b);
             printf("物体までの角度は%f\n", sign );
-            cvShowImage( windowNameHistogram3, kekkaImage );
+            cvShowImage( windowNameHistogram3, frameImage );
         }
 
     }
@@ -724,21 +614,12 @@ int main( int argc, char **argv ){
     cvWaitKey( 0 );
 
     //メモリを解放する
-    cvReleaseImage( &source1Image );
-    cvReleaseImage( &source2Image );
+    cvReleaseImage( &sourceImage );
     cvReleaseImage( &binary1Image );
     cvReleaseImage( &binary2Image );
-    cvReleaseImage( &binary3Image );
     cvReleaseImage( &hsvImage1 );
     cvReleaseImage( &hsvImage2 );
-    cvReleaseImage( &h_hsvImage );
-    cvReleaseImage( &hueImage );
-    cvReleaseImage( &saturationImage );
-    cvReleaseImage( &valueImage );
-    cvReleaseImage( &histogramImage );
     cvReleaseImage( &objectImage );
-    cvReleaseImage( &kouhoImage );
-    cvReleaseImage( &heikatuImage );
 
     cvDestroyWindow( windowNameHistogram3 );
     return 0;
