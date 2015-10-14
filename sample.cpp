@@ -35,43 +35,27 @@ $ ./a.out
 #include <iostream>
 #include <vector>
 
-#define DIMENSIONS  1    //ヒストグラムの次元数
-#define UNIFORM 1        //一様性に関するフラグ
-#define ACCUMULATE 0    //計算フラグ
-#define SCALE_SHIFT 0    //スケーリングした入力配列の要素に加える値
-#define HISTOGRAM_WIDTH  720    //ヒストグラムを描く画像の横幅
-#define HISTOGRAM_HEIGHT 100    //ヒストグラムを描く画像の縦幅
-#define LINE_THICKNESS -1    //線の太さ
-#define LINE_TYPE   8        //線の種類
-#define SHIFT    0            //座標の小数点以下の桁を表すビット数
-#define    ITERATIONS    3    //膨張、収縮の回数
-#define    TRADIUS    50    //登録画像の物体までの距離
+using namespace std;
 
+#define HISTOGRAM_WIDTH  720  // ヒストグラムを描く画像の横幅
+#define HISTOGRAM_HEIGHT 100  // ヒストグラムを描く画像の縦幅
+#define ITERATIONS       3    // 膨張、収縮の回数
+#define TRADIUS          50   // 登録画像の物体までの距離
 
-CvHistogram *histogram;
 int histogramSize = 180;    //ヒストグラムに描写される縦棒の数
 
-float range_0[] = { 0, 180 };    //ヒストグラムの範囲
-float* ranges[] = { range_0 };    //ヒストグラム各次元の範囲を示す配列のポインタ
-int hist1[180];            //ヒストグラムの値を入れる
-int hist2[180];            //ヒストグラムの値を入れる
-float hist_seiki1[180];    //正規化したヒストグラムを入れる
-float hist_seiki2[180];    //正規化したヒストグラムを入れる
-IplImage *histogramImage = NULL;    //ヒストグラム画像用IplImage
-IplImage *heikatuImage = NULL;
-IplImage *h_histogramImage = NULL;
-IplImage *h_heikatuImage = NULL;
+int hist1[180];          // ヒストグラムの値を入れる
+int hist2[180];          // ヒストグラムの値を入れる
+float hist_seiki1[180];  // 正規化したヒストグラムを入れる
+float hist_seiki2[180];  // 正規化したヒストグラムを入れる
 
+IplImage *histogramImage = NULL;  // ヒストグラム画像用IplImage
+IplImage *heikatuImage   = NULL;
 
-using namespace std;
-double gheikin    = 0;            //ガウシアンフィルタをつくる時のμの値
-double gbunsan = 1.0;        //ガウシアンフィルタをつくる時のσの値
-int gosa;                    //判定の際の誤差の範囲
-CvMoments moments1;            //重心を求める時のもの
-CvMoments moments2;            //重心を求める時のもの
+CvMoments moments1;  // 重心を求める時のもの
+CvMoments moments2;  // 重心を求める時のもの
 
-struct HANTEI
-{
+struct HANTEI {
     int kekka;
     CvPoint point;
     double txbectol;
@@ -82,49 +66,32 @@ struct HANTEI
 };
 
 int main( int argc, char **argv ){
-    int key = 0;                                //キー入力用の変数
-    int kekka;
     vector<HANTEI> ht;
 
-    CvScalar color1;                            //HSV表色系で表した色
-    CvScalar color2;                            //HSV表色系で表した色
-    CvScalar color3;                            //HSV表色系で表した色
-    CvScalar color4;                            //HSV表色系で表した色
+    CvScalar color1;  // HSV表色系で表した色
+    CvScalar color2;  // HSV表色系で表した色
+    CvScalar color3;  // HSV表色系で表した色
+    CvScalar color4;  // HSV表色系で表した色
 
     CvSeq *contours = NULL;
-    unsigned char h1;                        //H成分
-    unsigned char s1;                        //S成分
-    unsigned char v1;                        //V成分
+    unsigned char h1;  // H成分
+    unsigned char s1;  // S成分
+    unsigned char v1;  // V成分
 
-    unsigned char h2;                        //H成分
-    unsigned char s2;                        //S成分
-    unsigned char v2;                        //V成分
+    unsigned char h2;  // H成分
+    unsigned char s2;  // S成分
+    unsigned char v2;  // V成分
 
-    unsigned char h3;                        //H成分
-    unsigned char s3;                        //S成分
-    unsigned char v3;                        //V成分
+    unsigned char h3;  // H成分
+    unsigned char s3;  // S成分
+    unsigned char v3;  // V成分
 
-    unsigned char h4;                        //H成分
-    unsigned char s4;                        //S成分
-    unsigned char v4;                        //V成分
+    unsigned char h4;  // H成分
+    unsigned char s4;  // S成分
+    unsigned char v4;  // V成分
 
-    unsigned char p[3];                        //V成分
+    char *windowNameHistogram3 = "kekka";  // 比較するヒストグラムを表示するウィンドウの名前
 
-    char windowNameSource[] = "Source";        //元画像を表示するウィンドウの名前
-    char windowNameButtai[] = "Buttai";        //元画像を表示するウィンドウの名前
-    char windowNameBinary1[] = "Binary1";       //処理結果を表示するウィンドウの名前
-    char windowNameBinary2[] = "Binary2";       //処理結果を表示するウィンドウの名前
-    char windowNameBinary3[] = "Binary3";       //処理結果を表示するウィンドウの名前
-    char windowNameHistogram1[] = "Histogram1";        //ヒストグラムを表示するウィンドウの名前
-    char windowNameHistogram2[] = "Histogram2";
-    char windowNameHistogram4[] = "Histogram3";
-    char windowNameHistogram3[] = "kekka";        //比較するヒストグラムを表示するウィンドウの名前
-    char windowNameObject[] = "Object";
-    char windowNameCont[] = "Cont";
-    char windowNameKouho[] = "Kouho";
-    char windowNameMiru[] = "Miru";
-    float max_value = 0;                    //ヒストグラムの最大値
-    int bin_w;                            //ヒストグラムの縦棒の横幅
     int max_hue    = 0;                    //ヒストグラムが最大の時のHUEの値
     int max_hue2    = 0;                    //平滑後のヒストグラムが最大の時のHUEの値
     int max_i[180];                            //ヒストグラムを正規分布で表した時のHUEの値
@@ -136,9 +103,8 @@ int main( int argc, char **argv ){
     double xbectol;                                    //角度を求める時に用いるxベクトル
     double ybectol;                                //角度を求める時に用いるyベクトル
 
-    double total = 0;                        //ガウシアン作成の時の正規化するための値
-    double gausian[5];                        //ガウシアンの割合
     double filter[5];                    //ガウシアンフィルタ
+
     vector<int>    mount;                //ヒストグラムの山の位置
     vector<int>    valley;                //ヒストグラムの谷の位置
     vector<int>    h_mount;                //比較するヒストグラムの山の位置
@@ -146,16 +112,10 @@ int main( int argc, char **argv ){
     vector<int> hanteip;                //判定(山)
     vector<int> hanteim;                //判定(谷)
 
-    CvRect rect;                    //点列を包括する傾かない短形を求める
-
-    //IplImage *frameImage;            //
-    //キャプチャ画像用IplImage
-    /*IplImage *source1Image = cvLoadImage( "image/kikakusho2.bmp", CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR );
-      IplImage *frameImage = cvLoadImage( "image/kikakusho1.bmp", CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR );*/
-
     //cvLoadImage ファイルから画像を読み込む
     IplImage *source1Image = cvLoadImage( "image/object24.bmp", CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR );
     IplImage *frameImage = cvLoadImage( "image/buttai(0.4bai).bmp", CV_LOAD_IMAGE_ANYDEPTH | CV_LOAD_IMAGE_ANYCOLOR );
+
     //cvCreateImage ヘッダの作成とデータ領域の確保
     IplImage *source2Image = cvCreateImage( cvSize( (int)(source1Image->width), (int)(source1Image->height)), IPL_DEPTH_8U, 3 );
 
@@ -232,7 +192,8 @@ int main( int argc, char **argv ){
         }
     }
 
-
+    //ヒストグラムの最大値
+    float max_value = 0;
     for( int i = 0; i < 180; i++ ){
         if ( max_value < hist1[ i ]){
             max_value = hist1[ i ];
@@ -252,6 +213,7 @@ int main( int argc, char **argv ){
     cvSet( heikatuImage, cvScalarAll( 360 ), NULL );
 
     //ヒストグラムの縦棒の横幅を計算する
+    int bin_w;                            //ヒストグラムの縦棒の横幅
     bin_w = cvRound( ( double )histogramImage->width / histogramSize );
 
     /*
@@ -266,9 +228,9 @@ int main( int argc, char **argv ){
     cvPoint( i * bin_w, histogramImage->height ),
     cvPoint( ( i+1 ) * bin_w, histogramImage->height -  hist_seiki1[i] ),
     henkan,
-    LINE_THICKNESS,
-    LINE_TYPE,
-    SHIFT
+    -1,
+    8,
+    0
     );
     cvReleaseImage( &henkanImage );
     }
@@ -276,18 +238,20 @@ int main( int argc, char **argv ){
 
 
     //ガウシアンフィルタを計算する
+    double gheikin    = 0;            //ガウシアンフィルタをつくる時のμの値
+    double gbunsan = 1.0;        //ガウシアンフィルタをつくる時のσの値
+    double total = 0;                        //ガウシアン作成の時の正規化するための値
+    double gausian[5];                        //ガウシアンの割合
     for ( int i = -2; i < 3; i++)
     {
         gausian[ i+2 ] = (1/(sqrt( 2 * M_PI)*gbunsan))*exp(-pow((i - gheikin),2.0)/2*pow(gbunsan,2.0));
         total += gausian[ i+2 ];
     }
-
-
-
     for( int i = 0; i < 5; i++)
     {
         filter[i] = gausian[ i ]/ total;
     }
+
 
     for ( int i = 0; i < histogramSize; i++ )
     {
@@ -318,15 +282,9 @@ int main( int argc, char **argv ){
     }
     for( int y = 0; y < binary3Image->height; y++ ){
         for( int x = 0; x < binary3Image->width; x++ ){
-
-            p[0] = binary3Image->imageData[binary3Image->widthStep * y + x * 3 ];
-            p[1] = binary3Image->imageData[binary3Image->widthStep * y + x * 3 + 1 ];
-            p[2] = binary3Image->imageData[binary3Image->widthStep * y + x * 3 + 2 ];
-
             binary3Image->imageData[binary3Image->widthStep * y + x * 3 ] = cvRound( 255 );
             binary3Image->imageData[binary3Image->widthStep * y + x * 3 + 1 ] = cvRound( 255 );
             binary3Image->imageData[binary3Image->widthStep * y + x * 3 + 2 ] = cvRound( 255 );
-
         }
     }
 
@@ -464,8 +422,6 @@ int main( int argc, char **argv ){
        printf("谷の位置は%d,%d\n"    ,valley[ l ],max_i_s[valley[ l ]]);
        }
        */
-
-    gosa = ((mount.size() + valley.size())*2)+2;
 
     //BGRからHSVに変換する
     cvCvtColor( frameImage, hsvImage2, CV_BGR2HSV );
@@ -698,7 +654,8 @@ int main( int argc, char **argv ){
                     }
                 }
             }
-            kekka = 0;
+
+            int kekka = 0;
 
             for( int i = 0; i < hanteip.size(); i++ )
             {
@@ -779,12 +736,9 @@ int main( int argc, char **argv ){
     cvReleaseImage( &saturationImage );
     cvReleaseImage( &valueImage );
     cvReleaseImage( &histogramImage );
-    cvReleaseImage( &h_histogramImage );
     cvReleaseImage( &objectImage );
     cvReleaseImage( &kouhoImage );
     cvReleaseImage( &heikatuImage );
-    cvReleaseImage( &h_heikatuImage );
-    cvReleaseImage( &h_histogramImage );
 
     cvDestroyWindow( windowNameHistogram3 );
     return 0;
